@@ -7,12 +7,7 @@ from det3d.utils.config_tool import get_downsample_factor
 norm_cfg = None
 
 tasks = [
-    dict(num_class=1, class_names=["car"]),
-    dict(num_class=2, class_names=["truck", "construction_vehicle"]),
-    dict(num_class=2, class_names=["bus", "trailer"]),
-    dict(num_class=1, class_names=["barrier"]),
-    dict(num_class=2, class_names=["motorcycle", "bicycle"]),
-    dict(num_class=2, class_names=["pedestrian", "traffic_cone"]),
+    dict(num_class=1, class_names=["vehicle"]),
 ]
 
 class_names = list(itertools.chain(*[t["class_names"] for t in tasks]))
@@ -30,7 +25,7 @@ model = dict(
     reader=dict(
         type="PillarFeatureNet",
         num_filters=[64],
-        num_input_features=5,
+        num_input_features=3,
         with_distance=False,
         voxel_size=(0.2, 0.2, 8),
         pc_range=(-51.2, -51.2, -5.0, 51.2, 51.2, 3.0),
@@ -96,42 +91,6 @@ test_cfg = dict(
 dataset_type = "ArgoverseDataset"
 data_root = "data/argoverse/sample"
 
-db_sampler = dict(
-    type="GT-AUG",
-    enable=False,
-    db_info_path="data/nuScenes/dbinfos_train_10sweeps_withvelo.pkl",
-    sample_groups=[
-        dict(car=2),
-        dict(truck=3),
-        dict(construction_vehicle=7),
-        dict(bus=4),
-        dict(trailer=6),
-        dict(barrier=2),
-        dict(motorcycle=6),
-        dict(bicycle=6),
-        dict(pedestrian=2),
-        dict(traffic_cone=2),
-    ],
-    db_prep_steps=[
-        dict(
-            filter_by_min_num_points=dict(
-                car=5,
-                truck=5,
-                bus=5,
-                trailer=5,
-                construction_vehicle=5,
-                traffic_cone=5,
-                barrier=5,
-                motorcycle=5,
-                bicycle=5,
-                pedestrian=5,
-            )
-        ),
-        dict(filter_by_difficulty=[-1],),
-    ],
-    global_random_rotation_range_per_object=[0, 0],
-    rate=1.0,
-)
 train_preprocessor = dict(
     mode="train",
     shuffle_points=True,
@@ -146,7 +105,7 @@ train_preprocessor = dict(
     gt_drop_max_keep_points=15,
     remove_unknown_examples=False,
     remove_environment=False,
-    db_sampler=db_sampler,
+    db_sampler=None,
     class_names=class_names,
 )
 
@@ -183,7 +142,7 @@ test_anno = None
 
 data = dict(
     samples_per_gpu=1,
-    workers_per_gpu=2,
+    workers_per_gpu=1,  # 1 worker for now for debugging purpose
     train=dict(
         type=dataset_type,
         root_path=data_root,

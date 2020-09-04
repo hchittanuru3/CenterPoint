@@ -25,7 +25,10 @@ class ArgoverseDataset(PointCloudDataset):
         clouds = load_all_clouds(self._root_path, log_id, timestamps)
         clouds = perform_SE3(clouds, self._root_path, log_id)
         clouds = grids_group_and_SE3(clouds, self._root_path, log_id, 1)
-        points = list(clouds.values())[0][0]  # N x 3, without an intensity column unlike nuScenes
+        points = np.float32(list(clouds.values())[0][0])
+        # intensity = np.full((points.shape[0], 1), 1.0, dtype=np.float32)
+        # N x 4, with last column being intensity. TODO: load intensity?
+        # points = np.concatenate((points, intensity), 1)
 
         data_dict = load_all_boxes(self._root_path, log_id, timestamps)
         bbox_dict = convert_to_boundingbox(data_dict)
@@ -33,7 +36,7 @@ class ArgoverseDataset(PointCloudDataset):
         track_group = box_group_to_track_group(box_dict)
         track_group_tensors_dict, _ = label_to_tensor(track_group, 1)
         gt_boxes = list(track_group_tensors_dict.values())[0]
-        gt_boxes = gt_boxes.squeeze(1)
+        gt_boxes = gt_boxes.squeeze(1).numpy()
 
         info = {}
         res = {
@@ -42,6 +45,7 @@ class ArgoverseDataset(PointCloudDataset):
                 "points": points,
                 "annotations": {
                     "boxes": gt_boxes,
+                    "names": np.array(["vehicle"] * gt_boxes.shape[0])
                 },
             },
             "metadata": {
@@ -55,13 +59,6 @@ class ArgoverseDataset(PointCloudDataset):
             "type": "ArgoverseDataset",
         }
 
-        """
-        TODO: annotations
-        boxes: (74, 9)
-        names: 74 (of string)
-        tokens: 74 (of string)
-        velocities (74, 3) all nan
-        """
         data, _ = self.pipeline(res, info)
 
         return data
