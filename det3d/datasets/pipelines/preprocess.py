@@ -656,7 +656,7 @@ class AssignLabel(object):
                 elif res['type'] == 'WaymoDataset':
                     anno_box = np.zeros((max_objs, 8), dtype=np.float32)
                 elif res['type'] == 'ArgoverseDataset':
-                    anno_box = np.zeros((max_objs, 10), dtype=np.float32)
+                    anno_box = np.zeros((max_objs, 8), dtype=np.float32)
                 else:
                     raise NotImplementedError("Only Support nuScene for Now!")
 
@@ -723,11 +723,10 @@ class AssignLabel(object):
                                 (ct - (x, y), z, np.log(gt_dict['gt_boxes'][idx][k][3:6]),
                                 np.sin(rot), np.cos(rot)), axis=None)
                         elif res['type'] == 'ArgoverseDataset':
-                            vx, vy = gt_dict['gt_boxes'][idx][k][6:8]
-                            rot = gt_dict['gt_boxes'][idx][k][8]
+                            rot = gt_dict['gt_boxes'][idx][k][6]
                             anno_box[new_idx] = np.concatenate(
                                 (ct - (x, y), z, gt_dict['gt_boxes'][idx][k][3:6],
-                                 np.array(vx), np.array(vy), np.sin(rot), np.cos(rot)), axis=None)
+                                 np.sin(rot), np.cos(rot)), axis=None)
 
                         else:
                             raise NotImplementedError("Only Support KITTI and nuScene for Now!")

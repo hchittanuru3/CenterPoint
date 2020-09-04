@@ -225,7 +225,7 @@ def label_to_tensor(track_group_dict: Dict, n_t: int) -> Tuple[Dict, List]:
     interpolated_timestamps = []
     for timestamp, tracks in track_group_dict.items():
         num_tracks = len(tracks)
-        tensors[timestamp] = torch.zeros((num_tracks, n_t, 9))  # 9 values per bounding box
+        tensors[timestamp] = torch.zeros((num_tracks, n_t, 7))  # 7 values per bounding box
         interpolated_timestamps.append({})
         for track_idx, uninterpolated_track in enumerate(tracks):
             track, interpolated = interpolate_track(uninterpolated_track, n_t)
@@ -262,7 +262,7 @@ def interpolate_track(track: Dict, n_t: int) -> Tuple[torch.tensor, List]:
         return existing_boxes_tensor.repeat((n_t, 1)), to_interpolate
 
     # Fit rotations
-    rots = Rotation.from_euler('x', existing_boxes_tensor[:, 8])
+    rots = Rotation.from_euler('x', existing_boxes_tensor[:, 6])
     spline = RotationSpline(timestamps, rots)
     interpolated_rots = spline(to_interpolate)
 
@@ -277,7 +277,7 @@ def interpolate_track(track: Dict, n_t: int) -> Tuple[torch.tensor, List]:
     interpolated_y = func_y(to_interpolate)
     interpolated_z = func_z(to_interpolate)
 
-    interpolated = torch.zeros((n_t, 9))  # 9 values per bounding box
+    interpolated = torch.zeros((n_t, 7))  # 7 values per bounding box
 
     interpolated[timestamps, :] = existing_boxes_tensor
 
@@ -292,11 +292,7 @@ def interpolate_track(track: Dict, n_t: int) -> Tuple[torch.tensor, List]:
     interpolated[to_interpolate, 4] = first_label.record.width
     interpolated[to_interpolate, 5] = first_label.record.height
 
-    # Velocities in x and y. Ignore for now by filling with NaN
-    interpolated[to_interpolate, 6] = torch.zeros_like(interpolated[to_interpolate, 0]).fill_(float('nan'))
-    interpolated[to_interpolate, 7] = interpolated[to_interpolate, 6]
-
-    interpolated[to_interpolate, 8] = torch.tensor(interpolated_rots.as_euler('xyz')[:, 0], dtype=torch.float32)
+    interpolated[to_interpolate, 6] = torch.tensor(interpolated_rots.as_euler('xyz')[:, 0], dtype=torch.float32)
 
     return interpolated, to_interpolate
 
@@ -307,15 +303,11 @@ def convert_track_to_tensor(bboxes, track):
         [label.record.length, label.record.width, label.record.height]
         for _, label in track.items()
     ], dtype=torch.float32)
-    nan = torch.zeros_like(center_and_yaws[:, 0]).fill_(float('nan')).unsqueeze(1)
     return torch.cat((
         center_and_yaws[:, 0].unsqueeze(1),
         center_and_yaws[:, 1].unsqueeze(1),
         bboxes[:, 0, 2].unsqueeze(1),
         l_w_h,
-        # Velocities in x and y. Ignore for now by filling with NaN
-        nan,
-        nan,
         center_and_yaws[:, 2].unsqueeze(1),
     ), dim=1)
 

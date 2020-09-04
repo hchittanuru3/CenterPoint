@@ -26,9 +26,6 @@ class ArgoverseDataset(PointCloudDataset):
         clouds = perform_SE3(clouds, self._root_path, log_id)
         clouds = grids_group_and_SE3(clouds, self._root_path, log_id, 1)
         points = np.float32(list(clouds.values())[0][0])
-        # intensity = np.full((points.shape[0], 1), 1.0, dtype=np.float32)
-        # N x 4, with last column being intensity. TODO: load intensity?
-        # points = np.concatenate((points, intensity), 1)
 
         data_dict = load_all_boxes(self._root_path, log_id, timestamps)
         bbox_dict = convert_to_boundingbox(data_dict)

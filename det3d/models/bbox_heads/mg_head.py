@@ -1300,7 +1300,10 @@ class CenterHead(nn.Module):
                                                     preds_dict['vel'], preds_dict['rot']), dim=1)
             elif self.dataset == 'waymo':
                 preds_dict['anno_box'] = torch.cat((preds_dict['reg'], preds_dict['height'], preds_dict['dim'],
-                                                    preds_dict['rot']), dim=1)                  
+                                                    preds_dict['rot']), dim=1)
+            elif self.dataset == 'argoverse':
+                preds_dict['anno_box'] = torch.cat((preds_dict['reg'], preds_dict['height'], preds_dict['dim'],
+                                                    preds_dict['rot']), dim=1)
             else:
                 raise NotImplementedError()
 
