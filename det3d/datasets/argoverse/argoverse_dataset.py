@@ -23,7 +23,7 @@ class ArgoverseDataset(PointCloudDataset):
     def get_sensor_data(self, index):
         log_id, timestamps = self._log_id_timestamps_list[index]
         clouds = load_all_clouds(self._root_path, log_id, timestamps)
-        clouds = perform_SE3(clouds, self._root_path, log_id)
+        clouds = aggregate_points_to_city_frame(clouds, self._root_path, log_id)
         clouds = grids_group_and_SE3(clouds, self._root_path, log_id, 1)
         points = np.float32(list(clouds.values())[0][0])
 

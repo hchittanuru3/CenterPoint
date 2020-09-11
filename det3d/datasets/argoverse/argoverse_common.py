@@ -48,7 +48,7 @@ def load_all_clouds(dataset: str, log_id: str, timestamp_list: List[int]) -> Dic
     return cloud_dict
 
 
-def perform_SE3(cloud_dict: Dict, dataset: str, log_id: str) -> Dict:
+def aggregate_points_to_city_frame(cloud_dict: Dict, dataset: str, log_id: str) -> Dict:
     """Performs the SE3 transformation on all point clouds
 
     Args:
