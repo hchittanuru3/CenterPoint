@@ -22,10 +22,18 @@ class ArgoverseDataset(PointCloudDataset):
 
     def get_sensor_data(self, index):
         log_id, timestamps = self._log_id_timestamps_list[index]
-        clouds = load_all_clouds(self._root_path, log_id, timestamps)
+
+        # Load point cloud/intensity and reflectance data separately
+        clouds, ir = load_all_clouds(self._root_path, log_id, timestamps) 
+
         clouds = perform_SE3(clouds, self._root_path, log_id)
         clouds = grids_group_and_SE3(clouds, self._root_path, log_id, 1)
-        points = np.float32(list(clouds.values())[0][0])
+        #points = np.float32(list(clouds.values())[0][0])
+
+        # Concatenate transformed point cloud with intensity and reflection data
+        points = np.concatenate(
+            [np.float32(list(clouds.values())[0][0]), np.float32(list(ir.values())[0])], 
+            axis=1)
 
         data_dict = load_all_boxes(self._root_path, log_id, timestamps)
         bbox_dict = convert_to_boundingbox(data_dict)
