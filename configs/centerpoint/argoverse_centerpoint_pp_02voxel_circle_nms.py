@@ -89,7 +89,7 @@ test_cfg = dict(
 
 # dataset settings
 dataset_type = "ArgoverseDataset"
-data_root = "/srv/datasets/argoverse/argoverse-tracking/train1"
+data_root = "/srv/share/cliu324/argoverse-tracking-readonly/all-train"
 
 train_preprocessor = dict(
     mode="train",
