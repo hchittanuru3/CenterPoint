@@ -12,7 +12,8 @@ class ArgoverseDataset(PointCloudDataset):
         super(ArgoverseDataset, self).__init__(
             root_path, None, pipeline, test_mode=test_mode
         )
-        self._num_point_features = 3  # x, y, z
+        #self._num_point_features = 3  # x, y, z
+        self._num_point_features = 5  # x, y, z, i, r
 
     def __getitem__(self, index):
         return self.get_sensor_data(index)
