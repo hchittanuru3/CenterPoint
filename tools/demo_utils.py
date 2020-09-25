@@ -299,9 +299,9 @@ def visual(points, gt_anno, det, i, eval_range=35, conf_th=0.5):
         box.render(ax, view=np.eye(4), colors=('r', 'r', 'r'), linewidth=2)
 
     # Show EST boxes.
-    for box in boxes_est:
-        if box.score >= conf_th:
-            box.render(ax, view=np.eye(4), colors=('b', 'b', 'b'), linewidth=1)
+    # for box in boxes_est:
+    #     if box.score >= conf_th:
+    #         box.render(ax, view=np.eye(4), colors=('b', 'b', 'b'), linewidth=1)
 
 
     axes_limit = eval_range + 3  # Slightly bigger to include boxes that extend beyond the range.

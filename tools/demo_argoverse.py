@@ -76,7 +76,7 @@ def main():
     print('Done model inference. Please wait a minute, the matplotlib is a little slow...')
     
     for i in range(len(points_list)):
-        visual(points_list[i], gt_annos[i], detections[i], i, eval_range=200)
+        visual(points_list[i], gt_annos[i], detections[i], i, eval_range=50)
         print("Rendered Image {}".format(i))
     
     image_folder = 'demo'

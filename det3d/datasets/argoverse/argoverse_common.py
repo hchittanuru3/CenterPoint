@@ -11,9 +11,6 @@ from argoverse.utils import ply_loader, se3
 from scipy import interpolate
 from scipy.spatial.transform import Rotation, RotationSpline
 
-YSize = 80
-XSize = 144
-
 
 class Label:
     """
@@ -26,6 +23,14 @@ class Label:
         self.options = {"BACKGROUND": 0, "VEHICLE": 1}
         self.label_class = label
         self.label_num = self.options[self.label_class]
+
+
+def get_rotation_matrix(degrees):
+    return np.array([
+        [np.cos(degrees), -np.sin(degrees), 0],
+        [np.sin(degrees), np.cos(degrees), 0],
+        [0, 0, 0],
+    ])
 
 
 def load_all_clouds(dataset: str, log_id: str, timestamp_list: List[int]) -> Dict:
@@ -83,8 +88,8 @@ def grids_group_and_SE3(cloud_dict: Dict, dataset: str, log_id: str, n_t: int) -
                 int(timestamps[0]), dataset, log_id
             )
             map_to_t0_SE3 = t0_to_map_SE3.inverse()
-            rotation = np.eye(3)
-            translation = np.array([XSize / 2, YSize / 2, 0])
+            rotation = get_rotation_matrix(np.pi / 2)
+            translation = np.array([0, 0, 0])
             t0_to_occ_SE3 = se3.SE3(rotation, translation)
             grids = []
             for ts in timestamps:
@@ -163,8 +168,8 @@ def box_group_and_SE3(box_dict: Dict, dataset: str, log_id: str, n_t: int) -> Di
                 int(curr_timestamps[0]), dataset, log_id
             )
             map_to_t0_SE3 = t0_to_map_SE3.inverse()
-            rotation = np.eye(3)
-            translation = np.array([XSize / 2, YSize / 2, 0])
+            rotation = get_rotation_matrix(np.pi / 2)
+            translation = np.array([0, 0, 0])
             t0_to_occ_SE3 = se3.SE3(rotation, translation)
             new_labels = []
             for ts in curr_timestamps:
@@ -298,16 +303,15 @@ def interpolate_track(track: Dict, n_t: int) -> Tuple[torch.tensor, List]:
 
 def convert_track_to_tensor(bboxes, track):
     center_and_yaws = find_center_and_rotation(bboxes)
-    # TODO: centerpoint expects wlh?
-    l_w_h = torch.tensor([
-        [label.record.length, label.record.width, label.record.height]
+    w_l_h = torch.tensor([
+        [label.record.width, label.record.length, label.record.height]
         for _, label in track.items()
     ], dtype=torch.float32)
     return torch.cat((
         center_and_yaws[:, 0].unsqueeze(1),
         center_and_yaws[:, 1].unsqueeze(1),
         bboxes[:, 0, 2].unsqueeze(1),
-        l_w_h,
+        w_l_h,
         center_and_yaws[:, 2].unsqueeze(1),
     ), dim=1)
 
@@ -323,7 +327,7 @@ def find_center_and_rotation(boxes: torch.Tensor) -> torch.Tensor:
     dxdy = boxes[:, 0, :2] - boxes[:, 2, :2]
     dx = dxdy[:, 0]
     dy = dxdy[:, 1]
-    yaws = torch.atan2(dy, dx).unsqueeze(1)
+    yaws = -torch.atan2(dy, dx).unsqueeze(1) - np.pi / 2  # Conforming to the way nusc_common handles yaw
     corners = boxes[:, [3, 0], :2]
     center = (corners[:, 0, :] + corners[:, 1, :]) / 2
     centers_and_yaws = torch.cat((center, yaws), dim=1)
