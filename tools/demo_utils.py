@@ -53,18 +53,33 @@ def view_points(points: np.ndarray, view: np.ndarray, normalize: bool) -> np.nda
     return points
 
 def _second_det_to_nusc_box(detection):
+    """ Converts detection output to nuScenes-specific format.
+
+    Args:
+        detection (dict): detection dictionary. Keys:
+            ['box3d_lidar']     (n_det, 9)   bounding boxes    
+            ['label_preds']     (n_det, )    predicted labels (int)
+            ['scores']          (n_det, )    classification scores
+            ['metadata']
+                ['image_prefix']            
+                ['num_point_features']      5 (x, y, z, i, r)
+                ['token']                   nuScenes-specific token
+    """
+
     box3d = detection["box3d_lidar"]
     scores = detection["scores"]
     labels = detection["label_preds"]
+
     box3d[:, -1] = -box3d[:, -1] - np.pi / 2
     box_list = []
+
     for i in range(box3d.shape[0]):
         quat = Quaternion(axis=[0, 0, 1], radians=box3d[i, -1])
         velocity = (*box3d[i, 6:8], 0.0)
         box = Box(
-            list(box3d[i, :3]),
-            list(box3d[i, 3:6]),
-            quat,
+            list(box3d[i, :3]),     # Center coordinates
+            list(box3d[i, 3:6]),    # Box size
+            quat,                   # Rotation
             label=labels[i],
             score=scores[i],
             velocity=velocity,
@@ -282,6 +297,30 @@ class Box:
 
 
 def visual(points, gt_anno, det, i, eval_range=35, conf_th=0.5):
+    """ Visualizes detection output.
+
+    Args:
+        points (numpy.ndarray): point cloud (x, y, z)
+
+        gt_annos (dict): groundtruth annotation dictionary. Keys:
+            ['box3d_lidar']     (n_boxes, 9)        bounding boxes    
+            ['label_preds']     (n_boxes, )         predicted labels (int)
+            ['scores']          (n_boxes, )         classification scores
+
+        det (dict): detection dictionary. Keys:
+            ['box3d_lidar']     (n_det, 9)   bounding boxes    
+            ['label_preds']     (n_det, )    predicted labels (int)
+            ['scores']          (n_det, )    classification scores
+            ['metadata']
+                ['image_prefix']            
+                ['num_point_features']      5 (x, y, z, i, r)
+                ['token']                   nuScenes-specific token
+
+        i (int): current timestamp index
+        eval_range (int): evaluation range (m). Used to set visualization xlim and ylim.
+        conf_th (float): confidence threshold for bounding box visualization
+    """
+
     _, ax = plt.subplots(1, 1, figsize=(9, 9), dpi=200)
     points = remove_close(points, radius=3)
     points = view_points(points[:3, :], np.eye(4), normalize=False)
