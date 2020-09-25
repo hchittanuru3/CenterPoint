@@ -283,6 +283,7 @@ class Box:
 
 def visual(points, gt_anno, det, i, eval_range=35, conf_th=0.5):
     _, ax = plt.subplots(1, 1, figsize=(9, 9), dpi=200)
+    ax.set_facecolor('black')
     points = remove_close(points, radius=3)
     points = view_points(points[:3, :], np.eye(4), normalize=False)
 
@@ -306,7 +307,7 @@ def visual(points, gt_anno, det, i, eval_range=35, conf_th=0.5):
     axes_limit = eval_range + 3  # Slightly bigger to include boxes that extend beyond the range.
     ax.set_xlim(-axes_limit, axes_limit)
     ax.set_ylim(-axes_limit, axes_limit)
-    plt.axis('off')
+    # plt.axis('off')
 
     plt.savefig("demo/file%02d.png" % i)
     plt.close()
