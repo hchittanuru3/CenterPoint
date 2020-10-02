@@ -2,12 +2,13 @@ from det3d.datasets.argoverse.argoverse_common import *
 from det3d.datasets.custom import PointCloudDataset
 from det3d.datasets.registry import DATASETS
 
-
 @DATASETS.register_module
 class ArgoverseDataset(PointCloudDataset):
 
-    def __init__(self, root_path, pipeline=None, test_mode=False):
-        self._log_id_timestamps_list = ArgoverseDataset.load_logs(root_path, 1)
+    def __init__(self, root_path, n_sweeps_per_sample, timespan_per_sample, pipeline=None, test_mode=False):
+        self._n_sweeps_per_sample = n_sweeps_per_sample
+        self._timespan_per_sample = timespan_per_sample
+        self._log_id_timestamps_list = ArgoverseDataset.load_logs(root_path, n_sweeps_per_sample)
         # Not using info_path but loading ground truth directly for now
         super(ArgoverseDataset, self).__init__(
             root_path, None, pipeline, test_mode=test_mode
@@ -24,14 +25,16 @@ class ArgoverseDataset(PointCloudDataset):
         log_id, timestamps = self._log_id_timestamps_list[index]
         clouds = load_all_clouds(self._root_path, log_id, timestamps)
         clouds = aggregate_points_to_city_frame(clouds, self._root_path, log_id)
-        clouds = grids_group_and_SE3(clouds, self._root_path, log_id, 1)
-        points = np.float32(list(clouds.values())[0][0])
+        clouds = grids_group_and_SE3(clouds, self._root_path, log_id, self._n_sweeps_per_sample)
+        all_sweeps = list(clouds.values())[0]  # Array of 10 sweeps
+        points = np.float32(np.concatenate(all_sweeps, axis=0))
 
-        data_dict = load_all_boxes(self._root_path, log_id, timestamps)
+        # Take the first one and the last one to compute velocity
+        data_dict = load_all_boxes(self._root_path, log_id, [timestamps[0], timestamps[-1]])
         bbox_dict = convert_to_boundingbox(data_dict)
-        box_dict = box_group_and_SE3(bbox_dict, self._root_path, log_id, 1)
+        box_dict = box_group_and_SE3(bbox_dict, self._root_path, log_id, 2)
         track_group = box_group_to_track_group(box_dict)
-        track_group_tensors_dict, _ = label_to_tensor(track_group, 1)
+        track_group_tensors_dict = label_to_tensor(track_group, self._timespan_per_sample)
         gt_boxes = list(track_group_tensors_dict.values())[0]
         gt_boxes = gt_boxes.squeeze(1).numpy()
 

@@ -212,32 +212,34 @@ def box_group_to_track_group(box_dict):
         track_groups[k] = group_list
     return track_groups
 
-def label_to_tensor(track_group_dict: Dict, n_t: int) -> Tuple[Dict, List]:
+def label_to_tensor(track_group_dict: Dict, timespan_per_sample: int) -> Tuple[Dict, List]:
     """
     Converts all the sets of labels into five tensors for each timestamp
-    Each bounding box is in the form of [x, y, z, l, w, h, rot, label]
+    Each bounding box is in the form of [x, y, z, l, w, h, velocity_x, velocity_y, rot, label]
 
     Args:
         track_group_dict: (Dict) A dictionary with the timestamp as key and a list of tracks containing object
                                  bounding boxes across five timestamps as value
-        n_t: (int) Number of timestamps per group
     Returns:
         box_dict: (Dict) A dictionary with the timestamp as key and five sets of bounding boxes from consecutive
                          timestamps as value
-        interpolated_timestamps: (List) List of Dicts which maps track index to interpolated timestamps for that track
     """
     tensors = {}
-    interpolated_timestamps = []
     for timestamp, tracks in track_group_dict.items():
         num_tracks = len(tracks)
-        tensors[timestamp] = torch.zeros((num_tracks, n_t, 7))  # 7 values per bounding box
-        interpolated_timestamps.append({})
-        for track_idx, uninterpolated_track in enumerate(tracks):
-            track, interpolated = interpolate_track(uninterpolated_track, n_t)
-            if len(interpolated) > 0:
-                interpolated_timestamps[-1][track_idx] = interpolated
-            tensors[timestamp][track_idx, :] = track
-    return tensors, interpolated_timestamps
+        tensors[timestamp] = torch.zeros((num_tracks, 9))  # 9 values per bounding box
+        for track_idx, track in enumerate(tracks):
+            tensors[timestamp][track_idx] = convert_track_and_infer_velocity(track, timespan_per_sample)
+    return tensors
+
+def convert_track_and_infer_velocity(track, interval_between_timestamps):
+    timestamps = list(iter(track))
+
+    boxes = torch.tensor([track[t].boxes for t in timestamps], dtype=torch.float32)
+    boxes_tensor = convert_track_to_tensor(boxes, track, interval_between_timestamps)
+
+    # Only take the bounding boxes from the last timestamp
+    return boxes_tensor[-1]
 
 def interpolate_track(track: Dict, n_t: int) -> Tuple[torch.tensor, List]:
     """Interpolate a track to fill in gaps in which we do not have poses for the tracked object.
@@ -257,7 +259,7 @@ def interpolate_track(track: Dict, n_t: int) -> Tuple[torch.tensor, List]:
     to_interpolate = [t for t in range(n_t) if t not in timestamps]
 
     existing_boxes = torch.tensor([track[t].boxes for t in timestamps], dtype=torch.float32)
-    existing_boxes_tensor = convert_track_to_tensor(existing_boxes, track)
+    existing_boxes_tensor = convert_track_to_tensor(existing_boxes, track, interval_between_timestamps=0.1)
 
     if len(to_interpolate) == 0:
         # Nothing to interpolate
@@ -282,7 +284,7 @@ def interpolate_track(track: Dict, n_t: int) -> Tuple[torch.tensor, List]:
     interpolated_y = func_y(to_interpolate)
     interpolated_z = func_z(to_interpolate)
 
-    interpolated = torch.zeros((n_t, 7))  # 7 values per bounding box
+    interpolated = torch.zeros((n_t, 9))  # 9 values per bounding box
 
     interpolated[timestamps, :] = existing_boxes_tensor
 
@@ -297,21 +299,31 @@ def interpolate_track(track: Dict, n_t: int) -> Tuple[torch.tensor, List]:
     interpolated[to_interpolate, 4] = first_label.record.width
     interpolated[to_interpolate, 5] = first_label.record.height
 
-    interpolated[to_interpolate, 6] = torch.tensor(interpolated_rots.as_euler('xyz')[:, 0], dtype=torch.float32)
+    interpolated[to_interpolate, 8] = torch.tensor(interpolated_rots.as_euler('xyz')[:, 0], dtype=torch.float32)
 
     return interpolated, to_interpolate
 
-def convert_track_to_tensor(bboxes, track):
+def convert_track_to_tensor(bboxes, track, interval_between_timestamps):
     center_and_yaws = find_center_and_rotation(bboxes)
     w_l_h = torch.tensor([
         [label.record.width, label.record.length, label.record.height]
         for _, label in track.items()
     ], dtype=torch.float32)
+
+    if w_l_h.shape[0] == 1:
+        velocity = torch.zeros((1, 2))
+    else:
+        velocity = torch.zeros((w_l_h.shape[0], 2))
+        velocity[:-1] = (center_and_yaws[1:, :2] - center_and_yaws[:-1, :2]) / interval_between_timestamps
+        # Duplicate velocity from the second last timestamp to the last
+        velocity[-1] = velocity[-2]
+
     return torch.cat((
         center_and_yaws[:, 0].unsqueeze(1),
         center_and_yaws[:, 1].unsqueeze(1),
         bboxes[:, 0, 2].unsqueeze(1),
         w_l_h,
+        velocity,
         center_and_yaws[:, 2].unsqueeze(1),
     ), dim=1)
 

@@ -17,6 +17,8 @@ target_assigner = dict(
     tasks=tasks,
 )
 
+n_sweeps_per_sample = 10  # The number of frames to load in total for each item in ArgoverseDataset
+timespan_per_sample = 1.0  # Timespan in seconds
 
 # model settings
 model = dict(
@@ -53,7 +55,7 @@ model = dict(
         dataset='argoverse',
         weight=0.25,
         code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        common_heads={'reg': (2, 2), 'height': (1, 2), 'dim': (3, 2), 'rot': (2, 2)},  # (output_channel, num_conv)
+        common_heads={'reg': (2, 2), 'height': (1, 2), 'dim': (3, 2), 'rot': (2, 2)},  # , 'vel': (2, 2) (output_channel, num_conv)
         encode_rad_error_by_sin=False,
         direction_offset=0.0,
         bn=True
@@ -142,17 +144,23 @@ data = dict(
     train=dict(
         type=dataset_type,
         root_path=data_root,
+        n_sweeps_per_sample=n_sweeps_per_sample,
+        timespan_per_sample=timespan_per_sample,
         pipeline=train_pipeline,
     ),
     val=dict(
         type=dataset_type,
         root_path=data_root,
+        n_sweeps_per_sample=n_sweeps_per_sample,
+        timespan_per_sample=timespan_per_sample,
         test_mode=True,
         pipeline=test_pipeline,
     ),
     test=dict(
         type=dataset_type,
         root_path=data_root,
+        n_sweeps_per_sample=n_sweeps_per_sample,
+        timespan_per_sample=timespan_per_sample,
         pipeline=test_pipeline,
     ),
 )

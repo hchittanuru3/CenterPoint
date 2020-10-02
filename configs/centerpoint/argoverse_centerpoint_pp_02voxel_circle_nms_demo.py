@@ -9,6 +9,8 @@ data = dict(
     val=dict(
         type=dataset_type,
         root_path=data_root,
+        n_sweeps_per_sample=n_sweeps_per_sample,
+        timespan_per_sample=timespan_per_sample,
         test_mode=True,
         pipeline=test_pipeline,
     ),
