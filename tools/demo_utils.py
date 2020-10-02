@@ -71,6 +71,7 @@ def _second_det_to_nusc_box(detection):
     labels = detection["label_preds"]
 
     box3d[:, -1] = -box3d[:, -1] - np.pi / 2
+    box3d[:, -1] = -box3d[:, -1]
     box_list = []
 
     for i in range(box3d.shape[0]):
@@ -327,19 +328,19 @@ def visual(points, gt_anno, det, i, eval_range=35, conf_th=0.5):
 
     dists = np.sqrt(np.sum(points[:2, :] ** 2, axis=0))
     colors = np.minimum(1, dists / eval_range)
-    ax.scatter(points[0, :], points[1, :], c=colors, s=0.2)
+    ax.scatter(points[0, :], points[1, :], c=colors, s=0.01)
 
     boxes_gt = _second_det_to_nusc_box(gt_anno)
     boxes_est = _second_det_to_nusc_box(det)
 
     # Show GT boxes.
     for box in boxes_gt:
-        box.render(ax, view=np.eye(4), colors=('r', 'r', 'r'), linewidth=2)
+        box.render(ax, view=np.eye(4), colors=('r', 'r', 'r'), linewidth=0.5)
 
     # Show EST boxes.
     for box in boxes_est:
         if box.score >= conf_th:
-            box.render(ax, view=np.eye(4), colors=('b', 'b', 'b'), linewidth=1)
+            box.render(ax, view=np.eye(4), colors=('b', 'b', 'b'), linewidth=0.5)
 
 
     axes_limit = eval_range + 3  # Slightly bigger to include boxes that extend beyond the range.

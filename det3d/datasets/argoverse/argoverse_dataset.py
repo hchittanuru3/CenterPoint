@@ -7,7 +7,8 @@ from det3d.datasets.registry import DATASETS
 class ArgoverseDataset(PointCloudDataset):
 
     def __init__(self, root_path, pipeline=None, test_mode=False):
-        self._log_id_timestamps_list = ArgoverseDataset.load_logs(root_path, 1)
+        self.n_t = 10
+        self._log_id_timestamps_list = ArgoverseDataset.load_logs(root_path, self.n_t)
         # Not using info_path but loading ground truth directly for now
         super(ArgoverseDataset, self).__init__(
             root_path, None, pipeline, test_mode=test_mode
@@ -28,13 +29,24 @@ class ArgoverseDataset(PointCloudDataset):
         clouds, ir = load_all_clouds(self._root_path, log_id, timestamps) 
 
         clouds = perform_SE3(clouds, self._root_path, log_id)
-        clouds = grids_group_and_SE3(clouds, self._root_path, log_id, 1)
+        clouds = grids_group_and_SE3(clouds, self._root_path, log_id, self.n_t)
         #points = np.float32(list(clouds.values())[0][0])
 
         # Concatenate transformed point cloud with intensity and reflection data
-        points = np.concatenate(
-            [np.float32(list(clouds.values())[0][0]), np.float32(list(ir.values())[0])], 
-            axis=1)
+        try:
+
+            xyz_arr = np.concatenate([np.float32(list(clouds.values())[0][t]) for t in range(self.n_t)])
+            ir_arr = np.concatenate([np.float32(list(ir.values())[t]) for t in range(self.n_t)])
+        except NameError as err:
+            print("Error")
+            print(err)
+
+        #points = np.concatenate(
+        #    [np.float32(list(clouds.values())[0][0]), np.float32(list(ir.values())[0])], 
+        #    axis=1)
+
+        points = np.concatenate([xyz_arr, ir_arr], axis = 1)
+        print(points.shape)
 
         data_dict = load_all_boxes(self._root_path, log_id, timestamps)
         bbox_dict = convert_to_boundingbox(data_dict)
