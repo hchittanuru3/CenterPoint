@@ -1,8 +1,5 @@
 import argparse
-import copy
-import json
 import os
-import sys
 
 try:
     import apex
@@ -10,49 +7,36 @@ except:
     print("No APEX!")
 import numpy as np
 import torch
-import yaml
-from det3d import __version__, torchie
-from det3d.datasets import build_dataloader, build_dataset
+from det3d.datasets import build_dataset
 from det3d.models import build_detector
 from det3d.torchie import Config
 from det3d.torchie.apis import (
     batch_processor,
-    build_optimizer,
-    get_root_logger,
-    init_dist,
-    set_random_seed,
-    train_detector,
 )
 from det3d.torchie.trainer import load_checkpoint
-import pickle 
-import time 
-from matplotlib import pyplot as plt 
-from det3d.torchie.parallel import collate, collate_kitti
+from det3d.torchie.parallel import collate_kitti
 from torch.utils.data import DataLoader
-import matplotlib.cm as cm
-import subprocess
 import cv2
-from tools.demo_utils import visual 
-from collections import defaultdict
+from tools.demo_utils import visual
 
-def convert_box(info):
-    boxes =  info["gt_boxes"].astype(np.float32)
-    names = info["gt_names"]
+config_path = {
+    'nuscenes': 'configs/centerpoint/nusc_centerpoint_pp_02voxel_circle_nms_demo.py',
+    'argoverse': 'configs/centerpoint/argoverse_centerpoint_pp_02voxel_circle_nms_demo.py',
+}
 
+checkpoint_path = {
+    'nuscenes': 'work_dirs/centerpoint_pillar_512_demo/last.pth',
+    'argoverse': 'work_dirs/argoverse_centerpoint_pp_02voxel_circle_nms/skynet_epoch_19.pth',
+}
+
+def convert_box(boxes, names):
+    boxes = boxes.astype(np.float32)
     assert len(boxes) == len(names)
+    detection = {'box3d_lidar': boxes, 'label_preds': np.zeros(len(boxes)), 'scores': np.ones(len(boxes))}
+    return detection
 
-    detection = {}
-
-    detection['box3d_lidar'] = boxes
-
-    # dummy value 
-    detection['label_preds'] = np.zeros(len(boxes)) 
-    detection['scores'] = np.ones(len(boxes))
-
-    return detection 
-
-def main():
-    cfg = Config.fromfile('configs/centerpoint/nusc_centerpoint_pp_02voxel_circle_nms_demo.py')
+def main(dataset_name):
+    cfg = Config.fromfile(config_path[dataset_name])
     
     model = build_detector(cfg.model, train_cfg=None, test_cfg=cfg.test_cfg)
 
@@ -68,7 +52,7 @@ def main():
         pin_memory=False,
     )
 
-    checkpoint = load_checkpoint(model, 'work_dirs/centerpoint_pillar_512_demo/last.pth', map_location="cpu")
+    load_checkpoint(model, checkpoint_path[dataset_name], map_location="cpu")
     model.eval()
 
     model = model.cuda()
@@ -80,8 +64,12 @@ def main():
     detections = []
 
     for i, data_batch in enumerate(data_loader):
-        info = dataset._nusc_infos[i]
-        gt_annos.append(convert_box(info))
+        if dataset_name == 'nuscenes':
+            info = dataset._nusc_infos[i]
+            gt_annos.append(convert_box(info["gt_boxes"], info["gt_names"]))
+        else:
+            info = data_batch['annos'][0]
+            gt_annos.append(convert_box(info["boxes"], info["names"]))
 
         points = data_batch['points'][:, 1:4].cpu().numpy()
         with torch.no_grad():
@@ -101,7 +89,7 @@ def main():
     print('Done model inference. Please wait a minute, the matplotlib is a little slow...')
     
     for i in range(len(points_list)):
-        visual(points_list[i], gt_annos[i], detections[i], i)
+        visual(points_list[i], gt_annos[i], detections[i], i, eval_range=50)
         print("Rendered Image {}".format(i))
     
     image_folder = 'demo'
@@ -127,4 +115,10 @@ def main():
     print("Successfully save video in the main folder")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", type=str, required=True)
+    args = parser.parse_args()
+
+    assert args.dataset == 'nuscenes' or args.dataset == 'argoverse'
+
+    main(args.dataset)

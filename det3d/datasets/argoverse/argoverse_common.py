@@ -1,15 +1,18 @@
 import copy
 import json
 import os
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Union
 
 import numpy as np
+import pyntcloud
 import torch
 from argoverse.data_loading.object_label_record import json_label_dict_to_obj_record
 from argoverse.data_loading.pose_loader import get_city_SE3_egovehicle_at_sensor_t
-from argoverse.utils import ply_loader, se3
+from argoverse.utils import se3
 from scipy import interpolate
 from scipy.spatial.transform import Rotation, RotationSpline
+
+_PathLike = Union[str, "os.PathLike[str]"]
 
 
 class Label:
@@ -33,6 +36,30 @@ def get_rotation_matrix(degrees):
     ])
 
 
+def load_ply_xyzir(ply_fpath: _PathLike) -> np.ndarray:
+    """ Load a point cloud file from a filepath.
+    Edit 09/17/20: Include intensity and reflectance.
+    Args:
+        ply_fpath: Path to a PLY file
+    Returns:
+        arr: Array of shape (N, 3) - point cloud
+        arr: Array of shape (N, 2) - intensity and reflectance data
+    """
+
+    data = pyntcloud.PyntCloud.from_file(os.fspath(ply_fpath))
+
+    # Original point cloud data
+    x = np.array(data.points.x)[:, np.newaxis]
+    y = np.array(data.points.y)[:, np.newaxis]
+    z = np.array(data.points.z)[:, np.newaxis]
+
+    # Additional intensity and ring data
+    i = np.array(data.points.intensity)[:, np.newaxis]
+    r = np.array(data.points.laser_number)[:, np.newaxis]
+
+    return np.concatenate((x, y, z), axis=1), np.concatenate((i, r), axis=1)
+
+
 def load_all_clouds(dataset: str, log_id: str, timestamp_list: List[int]) -> Dict:
     """Loads all point clouds from the Argoverse Tracking set
 
@@ -44,13 +71,15 @@ def load_all_clouds(dataset: str, log_id: str, timestamp_list: List[int]) -> Dic
         cloud_dict: (dict) A dictionary with the timestamp as key and point cloud as value
     """
     cloud_dict = {}
+    ir_dict = {}
     file_path = os.path.join(dataset, log_id, "lidar")
     for timestamp in timestamp_list:
-        point_cloud = ply_loader.load_ply(
+        point_cloud, ir_data = load_ply_xyzir(
             os.path.join(file_path, f"PC_{timestamp}.ply")
         )
+        ir_dict[timestamp] = ir_data
         cloud_dict[timestamp] = point_cloud
-    return cloud_dict
+    return cloud_dict, ir_dict
 
 
 def aggregate_points_to_city_frame(cloud_dict: Dict, dataset: str, log_id: str) -> Dict:
