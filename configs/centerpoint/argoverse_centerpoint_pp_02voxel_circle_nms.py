@@ -7,12 +7,7 @@ from det3d.utils.config_tool import get_downsample_factor
 norm_cfg = None
 
 tasks = [
-    dict(num_class=1, class_names=["car"]),
-    dict(num_class=2, class_names=["truck", "construction_vehicle"]),
-    dict(num_class=2, class_names=["bus", "trailer"]),
-    dict(num_class=1, class_names=["barrier"]),
-    dict(num_class=2, class_names=["motorcycle", "bicycle"]),
-    dict(num_class=2, class_names=["pedestrian", "traffic_cone"]),
+    dict(num_class=1, class_names=["vehicle"]),
 ]
 
 class_names = list(itertools.chain(*[t["class_names"] for t in tasks]))
@@ -22,6 +17,8 @@ target_assigner = dict(
     tasks=tasks,
 )
 
+n_sweeps_per_sample = 10  # The number of frames to load in total for each item in ArgoverseDataset
+timespan_per_sample = 1.0  # Timespan in seconds
 
 # model settings
 model = dict(
@@ -30,7 +27,7 @@ model = dict(
     reader=dict(
         type="PillarFeatureNet",
         num_filters=[64],
-        num_input_features=5,
+        num_input_features=3,
         with_distance=False,
         voxel_size=(0.2, 0.2, 8),
         pc_range=(-51.2, -51.2, -5.0, 51.2, 51.2, 3.0),
@@ -55,10 +52,10 @@ model = dict(
         in_channels=sum([128, 128, 128]),
         norm_cfg=norm_cfg,
         tasks=tasks,
-        dataset='nuscenes',
+        dataset='argoverse',
         weight=0.25,
-        code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2, 1.0, 1.0],
-        common_heads={'reg': (2, 2), 'height': (1, 2), 'dim':(3, 2), 'rot':(2, 2), 'vel': (2, 2)}, # (output_channel, num_conv)
+        code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        common_heads={'reg': (2, 2), 'height': (1, 2), 'dim': (3, 2), 'vel': (2, 2), 'rot': (2, 2)},  # (output_channel, num_conv)
         encode_rad_error_by_sin=False,
         direction_offset=0.0,
         bn=True
@@ -93,46 +90,9 @@ test_cfg = dict(
 
 
 # dataset settings
-dataset_type = "NuScenesDataset"
-nsweeps = 10
-data_root = "data/nuScenes"
+dataset_type = "ArgoverseDataset"
+data_root = "/srv/share/cliu324/argoverse-tracking-readonly/all-train"
 
-db_sampler = dict(
-    type="GT-AUG",
-    enable=False,
-    db_info_path="data/nuScenes/pkl/dbinfos_train_10sweeps_withvelo.pkl",
-    sample_groups=[
-        dict(car=2),
-        dict(truck=3),
-        dict(construction_vehicle=7),
-        dict(bus=4),
-        dict(trailer=6),
-        dict(barrier=2),
-        dict(motorcycle=6),
-        dict(bicycle=6),
-        dict(pedestrian=2),
-        dict(traffic_cone=2),
-    ],
-    db_prep_steps=[
-        dict(
-            filter_by_min_num_points=dict(
-                car=5,
-                truck=5,
-                bus=5,
-                trailer=5,
-                construction_vehicle=5,
-                traffic_cone=5,
-                barrier=5,
-                motorcycle=5,
-                bicycle=5,
-                pedestrian=5,
-            )
-        ),
-        dict(filter_by_difficulty=[-1],),
-    ],
-    global_random_rotation_range_per_object=[0, 0],
-    rate=1.0,
-)
 train_preprocessor = dict(
     mode="train",
     shuffle_points=True,
@@ -147,7 +107,7 @@ train_preprocessor = dict(
     gt_drop_max_keep_points=15,
     remove_unknown_examples=False,
     remove_environment=False,
-    db_sampler=db_sampler,
+    db_sampler=None,
     class_names=class_names,
 )
 
@@ -166,55 +126,41 @@ voxel_generator = dict(
 )
 
 train_pipeline = [
-    dict(type="LoadPointCloudFromFile", dataset=dataset_type),
-    dict(type="LoadPointCloudAnnotations", with_bbox=True),
     dict(type="Preprocess", cfg=train_preprocessor),
     dict(type="Voxelization", cfg=voxel_generator),
     dict(type="AssignLabel", cfg=train_cfg["assigner"]),
     dict(type="Reformat"),
 ]
 test_pipeline = [
-    dict(type="LoadPointCloudFromFile", dataset=dataset_type),
-    dict(type="LoadPointCloudAnnotations", with_bbox=True),
     dict(type="Preprocess", cfg=val_preprocessor),
     dict(type="Voxelization", cfg=voxel_generator),
     dict(type="AssignLabel", cfg=train_cfg["assigner"]),
     dict(type="Reformat"),
 ]
 
-train_anno = "data/nuScenes/pkl/infos_train_10sweeps_withvelo_filter_True.pkl"
-val_anno = "data/nuScenes/pkl/infos_val_10sweeps_withvelo_filter_True.pkl"
-test_anno = None
-
 data = dict(
-    samples_per_gpu=1,
-    workers_per_gpu=1,
+    samples_per_gpu=8,
+    workers_per_gpu=8,
     train=dict(
         type=dataset_type,
         root_path=data_root,
-        info_path=train_anno,
-        ann_file=train_anno,
-        nsweeps=nsweeps,
-        class_names=class_names,
+        n_sweeps_per_sample=n_sweeps_per_sample,
+        timespan_per_sample=timespan_per_sample,
         pipeline=train_pipeline,
     ),
     val=dict(
         type=dataset_type,
         root_path=data_root,
-        info_path=val_anno,
+        n_sweeps_per_sample=n_sweeps_per_sample,
+        timespan_per_sample=timespan_per_sample,
         test_mode=True,
-        ann_file=val_anno,
-        nsweeps=nsweeps,
-        class_names=class_names,
         pipeline=test_pipeline,
     ),
     test=dict(
         type=dataset_type,
         root_path=data_root,
-        info_path=test_anno,
-        ann_file=test_anno,
-        nsweeps=nsweeps,
-        class_names=class_names,
+        n_sweeps_per_sample=n_sweeps_per_sample,
+        timespan_per_sample=timespan_per_sample,
         pipeline=test_pipeline,
     ),
 )
@@ -241,7 +187,7 @@ log_config = dict(
 # yapf:enable
 # runtime settings
 total_epochs = 20
-device_ids = range(1)
+device_ids = range(8)
 dist_params = dict(backend="nccl", init_method="env://")
 log_level = "INFO"
 work_dir = './work_dirs/{}/'.format(__file__[__file__.rfind('/') + 1:-3])

@@ -337,12 +337,14 @@ class Head(nn.Module):
             ret_dict[head] = self.__getattr__(head)(x)
 
         if 'vel' in ret_dict:
-            box_preds = torch.cat((ret_dict['reg'], ret_dict['height'], ret_dict['dim'],
-                                                    ret_dict['vel'], ret_dict['rot']), dim=1).permute(0, 2, 3, 1).contiguous()
+            box_preds = torch.cat(
+                (ret_dict['reg'], ret_dict['height'], ret_dict['dim'], ret_dict['vel'], ret_dict['rot']),
+                dim=1).permute(0, 2, 3, 1).contiguous()
         else:
-            box_preds = torch.cat((ret_dict['reg'], ret_dict['height'], ret_dict['dim'],
-                                                    ret_dict['rot']), dim=1).permute(0, 2, 3, 1).contiguous()
-                            
+            box_preds = torch.cat(
+                (ret_dict['reg'], ret_dict['height'], ret_dict['dim'], ret_dict['rot']),
+                dim=1).permute(0, 2, 3, 1).contiguous()
+
 
         ret_dict = {"box_preds": box_preds, "cls_preds": cls_preds}
         if self.use_dir:
@@ -1300,7 +1302,10 @@ class CenterHead(nn.Module):
                                                     preds_dict['vel'], preds_dict['rot']), dim=1)
             elif self.dataset == 'waymo':
                 preds_dict['anno_box'] = torch.cat((preds_dict['reg'], preds_dict['height'], preds_dict['dim'],
-                                                    preds_dict['rot']), dim=1)                  
+                                                    preds_dict['rot']), dim=1)
+            elif self.dataset == 'argoverse':
+                preds_dict['anno_box'] = torch.cat((preds_dict['reg'], preds_dict['height'], preds_dict['dim'],
+                                                    preds_dict['rot']), dim=1)
             else:
                 raise NotImplementedError()
 

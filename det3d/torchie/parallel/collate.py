@@ -89,6 +89,32 @@ def collate(batch, samples_per_gpu=1):
 
 
 def collate_kitti(batch_list, samples_per_gpu=1):
+    """ Collate function for the DataLoader.
+    Converts batch data to certain format used in training and inference.
+    Example batch_list[0].keys (nuScenes):
+
+        ['metadata']
+            ['image_prefix']
+            ['num_point_features']      dimensionality of input point cloud
+                                        (x, y, z, i, r)
+            ['token']                   nuScenes-specific token
+        ['points'].shape        (276705, 5)                 point cloud (x, y, z, i, r)
+        ['voxels'].shape        (20504, 20, 5)              voxel cloud (x, y, z, i, r)
+        ['shape']               array([512, 512,   1])
+        ['num_points'].shape    (20504,)                    number of points per voxel (?)
+        ['num_voxels']          array([20504])              number of voxels
+        ['coordinates'].shape   (20504, 3)                  point cloud coordinates (x, y, z)
+        ['annos']                                           groundtruth annotations
+            ['boxes'].shape     (11, 9)                     bounding boxes
+            ['names'].shape     (11,)                       class names
+            ['tokens']          (11,)                       tokens (nuScenes)
+            ['velocities']      (11, 3)                     velocities
+    Args:
+        batch_list (list): list of loaded instances in current batch.
+        samples_per_gpu (int): unused, carried over from collate() function.
+    """
+
+    # (1) Convert to standartized dictionary
     example_merged = collections.defaultdict(list)
     for example in batch_list:
         if type(example) is list:
@@ -102,6 +128,8 @@ def collate_kitti(batch_list, samples_per_gpu=1):
     ret = {}
     # voxel_nums_list = example_merged["num_voxels"]
     # example_merged.pop("num_voxels")
+
+    # (2) Convert numerical values to torch Tensors
     for key, elems in example_merged.items():
         if key in ["voxels", "num_points", "num_gt", "voxel_labels", "num_voxels"]:
             ret[key] = torch.tensor(np.concatenate(elems, axis=0))

@@ -62,9 +62,9 @@ def _second_det_to_nusc_box(detection):
         quat = Quaternion(axis=[0, 0, 1], radians=box3d[i, -1])
         velocity = (*box3d[i, 6:8], 0.0)
         box = Box(
-            list(box3d[i, :3]),
-            list(box3d[i, 3:6]),
-            quat,
+            list(box3d[i, :3]),     # Center coordinates
+            list(box3d[i, 3:6]),    # Box size
+            quat,                   # Rotation
             label=labels[i],
             score=scores[i],
             velocity=velocity,
@@ -282,7 +282,28 @@ class Box:
 
 
 def visual(points, gt_anno, det, i, eval_range=35, conf_th=0.5):
+    """ Visualizes detection output.
+    Args:
+        points (numpy.ndarray): point cloud (x, y, z)
+        gt_annos (dict): groundtruth annotation dictionary. Keys:
+            ['box3d_lidar']     (n_boxes, 9)        bounding boxes
+            ['label_preds']     (n_boxes, )         predicted labels (int)
+            ['scores']          (n_boxes, )         classification scores
+        det (dict): detection dictionary. Keys:
+            ['box3d_lidar']     (n_det, 9)   bounding boxes
+            ['label_preds']     (n_det, )    predicted labels (int)
+            ['scores']          (n_det, )    classification scores
+            ['metadata']
+                ['image_prefix']
+                ['num_point_features']      5 (x, y, z, i, r)
+                ['token']                   nuScenes-specific token
+        i (int): current timestamp index
+        eval_range (int): evaluation range (m). Used to set visualization xlim and ylim.
+        conf_th (float): confidence threshold for bounding box visualization
+    """
+
     _, ax = plt.subplots(1, 1, figsize=(9, 9), dpi=200)
+    ax.set_facecolor('black')
     points = remove_close(points, radius=3)
     points = view_points(points[:3, :], np.eye(4), normalize=False)
 
@@ -306,7 +327,7 @@ def visual(points, gt_anno, det, i, eval_range=35, conf_th=0.5):
     axes_limit = eval_range + 3  # Slightly bigger to include boxes that extend beyond the range.
     ax.set_xlim(-axes_limit, axes_limit)
     ax.set_ylim(-axes_limit, axes_limit)
-    plt.axis('off')
+    # plt.axis('off')
 
     plt.savefig("demo/file%02d.png" % i)
     plt.close()
