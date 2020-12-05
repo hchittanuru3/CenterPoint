@@ -400,12 +400,12 @@ def _fill_trainval_infos(nusc, train_scenes, val_scenes, test=False, nsweeps=10,
         ref_cam_path, _, ref_cam_intrinsic = nusc.get_sample_data(ref_cam_front_token)
 
         # Homogeneous transform from ego car frame to reference frame
-        initial_car_SE3_reference = transform_matrix(
+        egot1_SE3_lidart1 = transform_matrix(
             ref_cs_rec["translation"], Quaternion(ref_cs_rec["rotation"]), inverse=True
         )
 
         # Homogeneous transformation matrix from global to _current_ ego car frame
-        global_SE3_initial_car = transform_matrix(
+        world_SE3_egot1 = transform_matrix(
             ref_pose_rec["translation"],
             Quaternion(ref_pose_rec["rotation"]),
             inverse=True,
@@ -417,8 +417,8 @@ def _fill_trainval_infos(nusc, train_scenes, val_scenes, test=False, nsweeps=10,
             "cam_intrinsic": ref_cam_intrinsic,
             "token": sample["token"],
             "sweeps": [],
-            "initial_car_SE3_reference": initial_car_SE3_reference,
-            "global_SE3_initial_car": global_SE3_initial_car,
+            "egot1_SE3_lidart1": egot1_SE3_lidart1,
+            "world_SE3_egot1": world_SE3_egot1,
             "timestamp": ref_time,
         }
 
@@ -443,7 +443,7 @@ def _fill_trainval_infos(nusc, train_scenes, val_scenes, test=False, nsweeps=10,
 
                 # Get past pose
                 current_pose_rec = nusc.get("ego_pose", curr_sd_rec["ego_pose_token"])
-                curr_car_SE3_global = transform_matrix(
+                egovehicle_SE3_world = transform_matrix(
                     current_pose_rec["translation"],
                     Quaternion(current_pose_rec["rotation"]),
                     inverse=False,
@@ -453,7 +453,7 @@ def _fill_trainval_infos(nusc, train_scenes, val_scenes, test=False, nsweeps=10,
                 current_cs_rec = nusc.get(
                     "calibrated_sensor", curr_sd_rec["calibrated_sensor_token"]
                 )
-                sensor_SE3_curr_car = transform_matrix(
+                lidar_SE3_egovehicle = transform_matrix(
                     current_cs_rec["translation"],
                     Quaternion(current_cs_rec["rotation"]),
                     inverse=False,
@@ -461,7 +461,7 @@ def _fill_trainval_infos(nusc, train_scenes, val_scenes, test=False, nsweeps=10,
 
                 tm = reduce(
                     np.dot,
-                    [initial_car_SE3_reference, global_SE3_initial_car, curr_car_SE3_global, sensor_SE3_curr_car],
+                    [egot1_SE3_lidart1, world_SE3_egot1, egovehicle_SE3_world, lidar_SE3_egovehicle],
                 )
 
                 lidar_path = nusc.get_sample_data_path(curr_sd_rec["token"])
@@ -472,8 +472,8 @@ def _fill_trainval_infos(nusc, train_scenes, val_scenes, test=False, nsweeps=10,
                     "lidar_path": lidar_path,
                     "sample_data_token": curr_sd_rec["token"],
                     "transform_matrix": tm,
-                    "curr_car_SE3_global": curr_car_SE3_global,
-                    "sensor_SE3_curr_car": sensor_SE3_curr_car,
+                    "egovehicle_SE3_world": egovehicle_SE3_world,
+                    "lidar_SE3_egovehicle": lidar_SE3_egovehicle,
                     "time_lag": time_lag,
                 }
                 sweeps.append(sweep)
